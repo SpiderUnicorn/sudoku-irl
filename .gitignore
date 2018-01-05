@@ -1,0 +1,9 @@
+.DS_STORE
+cmake_install.cmake
+CMakeCache.txt
+.vscode
+/CMakeFiles
+/build
+Makefile
+SVM_MNIST.xml
+soduku
