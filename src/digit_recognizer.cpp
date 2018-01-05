@@ -10,7 +10,7 @@ typedef unsigned char BYTE;
 
 #define PIXELS_IN_SIDE 28
 #define PIXELS_IN_IMAGE PIXELS_IN_SIDE * PIXELS_IN_SIDE
-#define ENABLE_TRAIN 0
+#define ENABLE_TRAIN 1
 
 // do better when awake
 int SZ_d = 28; // was 20
@@ -161,8 +161,21 @@ int DigitRecognizer::classify(Mat img)
 
 	vector<float> descriptors;
 	// Mat deskewedHog = img.reshape(1, 28);
+ /*
+	Mat hogger(cloneImg.size(), 1, CV_32FC1);
 
-	hog.compute(img, descriptors);
+	for (int i = 0; i < trainHOG.size(); i++)
+	{
+		for (int j = 0; j < descriptor_size; j++)
+		{
+			trainMat.at<float>(i, j) = trainHOG[i][j];
+		}
+	}
+
+	cout << descriptors[0].cols << endl;
+
+	*/
+	hog.compute(cloneImg, descriptors);
 
 	int prediction = svm->predict(descriptors);
 
@@ -210,7 +223,7 @@ bool DigitRecognizer::train(const char *trainPath, const char *labelsPath)
 
 	label_file.read((char *)&number_of_images, sizeof(number_of_images));
 	pic_file.read((char *)&number_of_images, sizeof(number_of_images));
-	number_of_images = reverseInt(number_of_images) / 10;
+	number_of_images = reverseInt(number_of_images);
 
 	pic_file.read((char *)&n_rows, sizeof(n_rows));
 	n_rows = reverseInt(n_rows);
@@ -239,7 +252,7 @@ bool DigitRecognizer::train(const char *trainPath, const char *labelsPath)
 		Mat deskewedHog = cell.reshape(1, 28);
 		deskewedHog = deskew(deskewedHog);
 
-		hog.compute(deskewedHog, descriptors);
+		hog.compute(cell, descriptors);
 		trainHOG.push_back(descriptors);
 
 		char label = 0;
@@ -256,16 +269,17 @@ bool DigitRecognizer::train(const char *trainPath, const char *labelsPath)
 	std::cout << "at the station" << endl;
 
 	int descriptor_size = trainHOG[0].size();
+	Mat trainMat(trainHOG.size(),descriptor_size,CV_32FC1);
 
 	for (int i = 0; i < trainHOG.size(); i++)
 	{
 		for (int j = 0; j < descriptor_size; j++)
 		{
-			training_data.at<float>(i, j) = trainHOG[i][j];
+			trainMat.at<float>(i, j) = trainHOG[i][j];
 		}
 	}
 
-	Ptr<TrainData> td = TrainData::create(training_data, ROW_SAMPLE, label_data);
+	Ptr<TrainData> td = TrainData::create(trainMat, ROW_SAMPLE, label_data);
 	if (ENABLE_TRAIN)
 	{
 		svm->train(td);
@@ -275,29 +289,31 @@ bool DigitRecognizer::train(const char *trainPath, const char *labelsPath)
 	{
 		svm = Algorithm::load<SVM>("SVM_MNIST.xml");
 	}
-	
+
+	/*
 	cout << "accuracy: " << endl;
 	int correct_count = 0;
 	for (int idx = 0; idx < label_data.rows; idx++)
 	{
-		// float response = svm->predict(training_data.row(idx));
-		/*
-		Mat foo = training_data.row(idx);
-		foo = foo.reshape(1, 28);
+		float response = svm->predict(trainMat.row(idx));
+
+		//Mat foo = trainMat.row(idx);
+		// foo = foo.reshape(1, 28);
 		String hest = to_string(label_data.at<uchar>(idx, 0)) + " " + to_string(response);
-		imshow(hest, foo);
-		waitKey(2000);
-		*/
-		/*
+	//	imshow(hest, trainMat.row(idx));
+	//	waitKey(0);
+
+
 		if (label_data.at<uchar>(idx, 0) == (uchar)response)
 		{
 			correct_count++;
 		}
-		*/
 	}
+
 
 	double correct_ratio = (double)correct_count / (double)label_data.rows;
 	cout << 1 - correct_ratio << endl;
+	*/
 
 	return true;
 }
