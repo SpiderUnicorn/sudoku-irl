@@ -8,41 +8,53 @@ using namespace std;
 
 typedef unsigned char BYTE;
 
-#define PIXELS_IN_IMAGE 28*28
-#define ENABLE_TRAIN 1
-
+#define PIXELS_IN_SIDE 28
+#define PIXELS_IN_IMAGE PIXELS_IN_SIDE * PIXELS_IN_SIDE
+#define ENABLE_TRAIN 0
 
 // do better when awake
 int SZ_d = 28; // was 20
-float affineFlags_d = WARP_INVERSE_MAP|INTER_LINEAR;
+float affineFlags_d = WARP_INVERSE_MAP | INTER_LINEAR;
 
-HOGDescriptor hog(
-	Size(28,28), //winSize
-	Size(14,14), //blocksize
-	Size(7,7), //blockStride,
-	Size(14,14), //cellSize,
-				9, //nbins,
-				1, //derivAper,
-				-1, //winSigma,
-				0, //histogramNormType,
-			0.2, //L2HysThresh,
-				1,//gammal correction,
-				64,//nlevels=64
-				1);//Use signed gradients
+HOGDescriptor initHog() {
+	auto windowSize = Size(PIXELS_IN_SIDE, PIXELS_IN_SIDE);
+	auto blockSize = Size(PIXELS_IN_SIDE / 2, PIXELS_IN_SIDE / 2);
+	auto blockStride = Size(7, 7);
+	auto cellSize = Size(14, 14);
 
-Mat deskew(Mat& img) {
-    Moments m = moments(img);
-    if(abs(m.mu02) < 1e-2){
-        return img.clone();
-    }
-    float skew = m.mu11/m.mu02;
-    Mat warpMat = (Mat_<float>(2,3) << 1, skew, -0.5*SZ_d*skew, 0, 1, 0);
-    Mat imgOut = Mat::zeros(img.rows, img.cols, img.type());
-    warpAffine(img, imgOut, warpMat, imgOut.size(),affineFlags_d);
+	HOGDescriptor hog(
+		windowSize,
+		blockSize,
+		blockStride,
+		cellSize,
+		9,			  //nbins,
+		1,			  //derivAper,
+		-1,			  //winSigma,
+		0,			  //histogramNormType,
+		0.2,		  //L2HysThresh,
+		1,			  //gammal correction,
+		64,			  //nlevels=64
+		1);			  //Use signed gradients
 
-    return imgOut;
+	return hog;
 }
 
+HOGDescriptor hog = initHog();
+
+Mat deskew(Mat &img)
+{
+	Moments m = moments(img);
+	if (abs(m.mu02) < 1e-2)
+	{
+		return img.clone();
+	}
+	float skew = m.mu11 / m.mu02;
+	Mat warpMat = (Mat_<float>(2, 3) << 1, skew, -0.5 * SZ_d * skew, 0, 1, 0);
+	Mat imgOut = Mat::zeros(img.rows, img.cols, img.type());
+	warpAffine(img, imgOut, warpMat, imgOut.size(), affineFlags_d);
+
+	return imgOut;
+}
 
 DigitRecognizer::DigitRecognizer()
 {
@@ -50,7 +62,6 @@ DigitRecognizer::DigitRecognizer()
 	// svm->setKernel(SVM::LINEAR);
 	svm->setType(SVM::C_SVC);
 	// svm->setTermCriteria(TermCriteria(TermCriteria::MAX_ITER, 50, 1e-6));
-
 
 	// Set SVM Kernel to Radial Basis Function (RBF)
 	svm->setKernel(SVM::RBF);
@@ -65,88 +76,77 @@ DigitRecognizer::~DigitRecognizer()
 	delete svm;
 }
 
+void digit_bounding_box(Mat &img, int &rowTop, int &rowBottom, int &colLeft, int &colRight) {
+	int thresholdBottom = 50;
+	int thresholdTop = 50;
+	int thresholdLeft = 50;
+	int thresholdRight = 50;
+	int center = img.rows / 2;
+
+	for (int i = center; i < img.rows; i++)
+	{
+		if (rowBottom == -1)
+		{
+			IplImage stub = img.row(i);
+			if (cvSum(&stub).val[0] < thresholdBottom || i == img.rows - 1)
+				rowBottom = i;
+		}
+
+		if (rowTop == -1)
+		{
+			IplImage stub = img.row(img.rows - i);
+			if (cvSum(&stub).val[0] < thresholdTop || i == img.rows - 1)
+				rowTop = img.rows - i;
+		}
+
+		if (colRight == -1)
+		{
+			IplImage stub = img.col(i);
+			if (cvSum(&stub).val[0] < thresholdRight || i == img.cols - 1)
+				colRight = i;
+		}
+
+		if (colLeft == -1)
+		{
+			IplImage stub = img.col(img.cols - i);
+			if (cvSum(&stub).val[0] < thresholdLeft || i == img.cols - 1)
+				colLeft = img.cols - i;
+		}
+	}
+}
+
+void center_digit(Mat &inbound, Mat &outbound) {
+	int rowTop = -1, rowBottom = -1, colLeft = -1, colRight = -1;
+
+	digit_bounding_box(inbound, rowTop, rowBottom, colLeft, colRight);
+
+	outbound = outbound.zeros(inbound.rows, inbound.cols, CV_8UC1);
+
+	int startAtX = (outbound.cols / 2) - (colRight - colLeft) / 2;
+
+	int startAtY = (outbound.rows / 2) - (rowBottom - rowTop) / 2;
+
+	for (int y = startAtY; y < (outbound.rows / 2) + (rowBottom - rowTop) / 2; y++)
+	{
+		uchar *ptr = outbound.ptr<uchar>(y);
+		for (int x = startAtX; x < (outbound.cols / 2) + (colRight - colLeft) / 2; x++)
+		{
+			ptr[x] = inbound.at<uchar>(rowTop + (y - startAtY), colLeft + (x - startAtX));
+		}
+	}
+}
+
 Mat DigitRecognizer::preprocessImage(Mat img)
 {
-	int rowTop=-1, rowBottom=-1, colLeft=-1, colRight=-1;
+	Mat centeredDigit;
+	center_digit(img, centeredDigit);
 
-    Mat temp;
-    int thresholdBottom = 50;
-    int thresholdTop = 50;
-    int thresholdLeft = 50;
-    int thresholdRight = 50;
-    int center = img.rows/2;
-    for(int i=center;i<img.rows;i++)
-    {
-        if(rowBottom==-1)
-        {
-            temp = img.row(i);
-            IplImage stub = temp;
-            if(cvSum(&stub).val[0] < thresholdBottom || i==img.rows-1)
-                rowBottom = i;
-
-        }
-
-        if(rowTop==-1)
-        {
-            temp = img.row(img.rows-i);
-            IplImage stub = temp;
-            if(cvSum(&stub).val[0] < thresholdTop || i==img.rows-1)
-                rowTop = img.rows-i;
-
-        }
-
-        if(colRight==-1)
-        {
-            temp = img.col(i);
-            IplImage stub = temp;
-            if(cvSum(&stub).val[0] < thresholdRight|| i==img.cols-1)
-                colRight = i;
-
-        }
-
-        if(colLeft==-1)
-        {
-            temp = img.col(img.cols-i);
-            IplImage stub = temp;
-            if(cvSum(&stub).val[0] < thresholdLeft|| i==img.cols-1)
-                colLeft = img.cols-i;
-        }
-    }
-
-
-	Mat newImg;
-    newImg = newImg.zeros(img.rows, img.cols, CV_8UC1);
-
-    int startAtX = (newImg.cols/2)-(colRight-colLeft)/2;
-
-    int startAtY = (newImg.rows/2)-(rowBottom-rowTop)/2;
-
-    for(int y=startAtY;y<(newImg.rows/2)+(rowBottom-rowTop)/2;y++)
-    {
-        uchar *ptr = newImg.ptr<uchar>(y);
-        for(int x=startAtX;x<(newImg.cols/2)+(colRight-colLeft)/2;x++)
-        {
-            ptr[x] = img.at<uchar>(rowTop+(y-startAtY),colLeft+(x-startAtX));
-        }
-    }
 	Mat cloneImg = Mat(numRows, numCols, CV_8UC1);
 
-	resize(newImg, cloneImg, Size(numCols, numRows));
+	resize(img, cloneImg, Size(numCols, numRows));
 
+	// remove any lines near the image borders
 	rectangle(cloneImg, Point(0, 0), Point(27, 27), Scalar(0, 0, 0), 5);
-
-    // Now don't fill along the borders
-	/*
-    for(int i=0;i<cloneImg.rows;i++)
-    {
-        floodFill(cloneImg, cvPoint(0, i), cvScalar(0,0,0));
-
-        floodFill(cloneImg, cvPoint(cloneImg.cols-1, i), cvScalar(0,0,0));
-
-        floodFill(cloneImg, cvPoint(i, 0), cvScalar(0));
-        floodFill(cloneImg, cvPoint(i, cloneImg.rows-1), cvScalar(0));
-    }
-	*/
 
 	cloneImg = cloneImg.reshape(1, 1);
 
@@ -176,7 +176,8 @@ int DigitRecognizer::classify(Mat img)
 }
 
 // Fix for Intel processors big endian
-int reverseInt(int i) {
+int reverseInt(int i)
+{
 	unsigned char ch1, ch2, ch3, ch4;
 	ch1 = i & 255;
 	ch2 = (i >> 8) & 255;
@@ -203,17 +204,17 @@ bool DigitRecognizer::train(const char *trainPath, const char *labelsPath)
 	int n_rows = 0;
 	int n_cols = 0;
 
-	label_file.read((char*)&magic_number, sizeof(magic_number));
-	pic_file.read((char*)&magic_number, sizeof(magic_number));
+	label_file.read((char *)&magic_number, sizeof(magic_number));
+	pic_file.read((char *)&magic_number, sizeof(magic_number));
 	magic_number = reverseInt(magic_number);
 
-	label_file.read((char*)&number_of_images, sizeof(number_of_images));
-	pic_file.read((char*)&number_of_images, sizeof(number_of_images));
+	label_file.read((char *)&number_of_images, sizeof(number_of_images));
+	pic_file.read((char *)&number_of_images, sizeof(number_of_images));
 	number_of_images = reverseInt(number_of_images) / 10;
 
-	pic_file.read((char*)&n_rows, sizeof(n_rows));
+	pic_file.read((char *)&n_rows, sizeof(n_rows));
 	n_rows = reverseInt(n_rows);
-	pic_file.read((char*)&n_cols, sizeof(n_cols));
+	pic_file.read((char *)&n_cols, sizeof(n_cols));
 	n_cols = reverseInt(n_cols);
 
 	numRows = n_rows;
@@ -225,9 +226,10 @@ bool DigitRecognizer::train(const char *trainPath, const char *labelsPath)
 
 	vector<vector<float>> trainHOG;
 
-	for (int i = 0; i < number_of_images; ++i) {
+	for (int i = 0; i < number_of_images; ++i)
+	{
 		unsigned char data_tmp[PIXELS_IN_IMAGE];
-		pic_file.read((char*)data_tmp, sizeof(unsigned char) * n_stride);
+		pic_file.read((char *)data_tmp, sizeof(unsigned char) * n_stride);
 		Mat row_image(1, n_stride, CV_8U, data_tmp);
 		row_image.row(0).copyTo(training_data.row(i));
 
@@ -236,15 +238,14 @@ bool DigitRecognizer::train(const char *trainPath, const char *labelsPath)
 		auto cell = training_data.row(i);
 		Mat deskewedHog = cell.reshape(1, 28);
 		deskewedHog = deskew(deskewedHog);
-	
-        hog.compute(deskewedHog, descriptors);
-        trainHOG.push_back(descriptors);
+
+		hog.compute(deskewedHog, descriptors);
+		trainHOG.push_back(descriptors);
 
 		char label = 0;
-		label_file.read((char*)&label, sizeof(label));
+		label_file.read((char *)&label, sizeof(label));
 		label_data.at<uchar>(i, 0) = label;
 	}
-
 
 	std::cout << "creating train data" << endl;
 
@@ -256,24 +257,30 @@ bool DigitRecognizer::train(const char *trainPath, const char *labelsPath)
 
 	int descriptor_size = trainHOG[0].size();
 
-	for(int i = 0;i<trainHOG.size();i++){
-        for(int j = 0;j<descriptor_size;j++) {
-           training_data.at<float>(i,j) = trainHOG[i][j];
-        }
-    }
-
-	Ptr<TrainData> td = TrainData::create(training_data, ROW_SAMPLE, label_data);
-	if(ENABLE_TRAIN) {
-	 	svm->train(td);
-		svm->save("SVM_MNIST.xml");
-	} else {
-		svm = Algorithm::load<SVM>("SVM_MNIST.xml");
+	for (int i = 0; i < trainHOG.size(); i++)
+	{
+		for (int j = 0; j < descriptor_size; j++)
+		{
+			training_data.at<float>(i, j) = trainHOG[i][j];
+		}
 	}
 
+	Ptr<TrainData> td = TrainData::create(training_data, ROW_SAMPLE, label_data);
+	if (ENABLE_TRAIN)
+	{
+		svm->train(td);
+		svm->save("SVM_MNIST.xml");
+	}
+	else
+	{
+		svm = Algorithm::load<SVM>("SVM_MNIST.xml");
+	}
+	
 	cout << "accuracy: " << endl;
 	int correct_count = 0;
-	for (int idx = 0; idx < label_data.rows; idx++) {
-		float response = svm->predict(training_data.row(idx));
+	for (int idx = 0; idx < label_data.rows; idx++)
+	{
+		// float response = svm->predict(training_data.row(idx));
 		/*
 		Mat foo = training_data.row(idx);
 		foo = foo.reshape(1, 28);
@@ -281,14 +288,16 @@ bool DigitRecognizer::train(const char *trainPath, const char *labelsPath)
 		imshow(hest, foo);
 		waitKey(2000);
 		*/
-		if (label_data.at<uchar>(idx, 0) == (uchar)response) {
+		/*
+		if (label_data.at<uchar>(idx, 0) == (uchar)response)
+		{
 			correct_count++;
 		}
+		*/
 	}
 
-
 	double correct_ratio = (double)correct_count / (double)label_data.rows;
-	cout << 1-correct_ratio << endl;
+	cout << 1 - correct_ratio << endl;
 
 	return true;
 }
