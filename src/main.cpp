@@ -94,14 +94,9 @@ int main(int argc, char** argv) {
     imshow("undistortedThreshed", undistortedThreshed);
 
     DigitRecognizer *dr = new DigitRecognizer();
-    String train_path = "/Users/JohanNystrom/practice/sudoku_solver/src/train-images-idx3-ubyte";
-    String label_path = "/Users/JohanNystrom/practice/sudoku_solver/src/train-labels-idx1-ubyte";
-
-    const char * tp = train_path.c_str();
-    const char * lp = label_path.c_str();
 
     // into the unknown...
-    dr->train(tp, lp);
+    dr->train();
 
 	std::cout << "done training... phew" << endl;
 
@@ -131,6 +126,7 @@ int main(int argc, char** argv) {
                 String hest = to_string(j) + to_string(i) + to_string(number);
                 imshow(hest, currentCell);
                 cout << number << " ";
+                waitKey(3000);
             }
             else
             {

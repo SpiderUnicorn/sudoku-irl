@@ -8,19 +8,18 @@ using namespace std;
 
 typedef unsigned char BYTE;
 
-#define PIXELS_IN_SIDE 28
+#define PIXELS_IN_SIDE 20
 #define PIXELS_IN_IMAGE PIXELS_IN_SIDE * PIXELS_IN_SIDE
 #define ENABLE_TRAIN 1
 
-// do better when awake
-int SZ_d = 28; // was 20
+string pathName = "digits.png";
 float affineFlags_d = WARP_INVERSE_MAP | INTER_LINEAR;
 
 HOGDescriptor initHog() {
 	auto windowSize = Size(PIXELS_IN_SIDE, PIXELS_IN_SIDE);
-	auto blockSize = Size(PIXELS_IN_SIDE / 2, PIXELS_IN_SIDE / 2);
-	auto blockStride = Size(7, 7);
-	auto cellSize = Size(14, 14);
+	auto blockSize = Size(8, 8);
+	auto blockStride = Size(4, 4);
+	auto cellSize = Size(8, 8);
 
 	HOGDescriptor hog(
 		windowSize,
@@ -49,11 +48,96 @@ Mat deskew(Mat &img)
 		return img.clone();
 	}
 	float skew = m.mu11 / m.mu02;
-	Mat warpMat = (Mat_<float>(2, 3) << 1, skew, -0.5 * SZ_d * skew, 0, 1, 0);
+	Mat warpMat = (Mat_<float>(2, 3) << 1, skew, -0.5 * PIXELS_IN_SIDE * skew, 0, 1, 0);
 	Mat imgOut = Mat::zeros(img.rows, img.cols, img.type());
 	warpAffine(img, imgOut, warpMat, imgOut.size(), affineFlags_d);
 
 	return imgOut;
+}
+
+void load_train_data(string &pathName, vector<Mat> &trainCells, vector<Mat> &testCells,vector<int> &trainLabels, vector<int> &testLabels)
+{
+    Mat img = imread(pathName,CV_LOAD_IMAGE_GRAYSCALE);
+    int ImgCount = 0;
+    for(int i = 0; i < img.rows; i = i + PIXELS_IN_SIDE)
+    {
+        for(int j = 0; j < img.cols; j = j + PIXELS_IN_SIDE)
+        {
+            Mat digitImg = (img.colRange(j,j+PIXELS_IN_SIDE).rowRange(i,i+PIXELS_IN_SIDE)).clone();
+            if(j < int(0.9*img.cols))
+            {
+                trainCells.push_back(digitImg);
+            }
+            else
+            {
+                testCells.push_back(digitImg);
+            }
+            ImgCount++;
+        }
+    }
+
+    cout << "Image Count : " << ImgCount << endl;
+    float digitClassNumber = 0;
+
+    for(int z=0;z<int(0.9*ImgCount);z++){
+        if(z % 450 == 0 && z != 0){
+            digitClassNumber = digitClassNumber + 1;
+            }
+        trainLabels.push_back(digitClassNumber);
+    }
+    digitClassNumber = 0;
+    for(int z=0;z<int(0.1*ImgCount);z++){
+        if(z % 50 == 0 && z != 0){
+            digitClassNumber = digitClassNumber + 1;
+            }
+        testLabels.push_back(digitClassNumber);
+    }
+}
+
+void CreateDeskewedTrainTest(vector<Mat> &deskewedTrainCells,vector<Mat> &deskewedTestCells, vector<Mat> &trainCells, vector<Mat> &testCells){
+    for(int i=0;i<trainCells.size();i++){
+
+        Mat deskewedImg = deskew(trainCells[i]);
+        deskewedTrainCells.push_back(deskewedImg);
+    }
+
+    for(int i=0;i<testCells.size();i++){
+
+        Mat deskewedImg = deskew(testCells[i]);
+        deskewedTestCells.push_back(deskewedImg);
+    }
+}
+
+void CreateTrainTestHOG(vector<vector<float> > &trainHOG, vector<vector<float> > &testHOG, vector<Mat> &deskewedtrainCells, vector<Mat> &deskewedtestCells){
+
+    for(int y=0;y<deskewedtrainCells.size();y++){
+        vector<float> descriptors;
+        hog.compute(deskewedtrainCells[y],descriptors);
+        trainHOG.push_back(descriptors);
+    }
+
+    for(int y=0;y<deskewedtestCells.size();y++){
+
+        vector<float> descriptors;
+        hog.compute(deskewedtestCells[y],descriptors);
+        testHOG.push_back(descriptors);
+    }
+}
+void ConvertVectortoMatrix(vector<vector<float> > &trainHOG, vector<vector<float> > &testHOG, Mat &trainMat, Mat &testMat)
+{
+
+    int descriptor_size = trainHOG[0].size();
+
+    for(int i = 0;i<trainHOG.size();i++){
+        for(int j = 0;j<descriptor_size;j++){
+           trainMat.at<float>(i,j) = trainHOG[i][j];
+        }
+    }
+    for(int i = 0;i<testHOG.size();i++){
+        for(int j = 0;j<descriptor_size;j++){
+            testMat.at<float>(i,j) = testHOG[i][j];
+        }
+    }
 }
 
 DigitRecognizer::DigitRecognizer()
@@ -118,6 +202,8 @@ void digit_bounding_box(Mat &img, int &rowTop, int &rowBottom, int &colLeft, int
 void center_digit(Mat &inbound, Mat &outbound) {
 	int rowTop = -1, rowBottom = -1, colLeft = -1, colRight = -1;
 
+	// remove any lines near the image borders
+	rectangle(inbound, Point(0, 0), Point(ceil((double)500/9) - 1, ceil((double)500/9) - 1), Scalar(0, 0, 0), 15);
 	digit_bounding_box(inbound, rowTop, rowBottom, colLeft, colRight);
 
 	outbound = outbound.zeros(inbound.rows, inbound.cols, CV_8UC1);
@@ -141,25 +227,23 @@ Mat DigitRecognizer::preprocessImage(Mat img)
 	Mat centeredDigit;
 	center_digit(img, centeredDigit);
 
-	Mat cloneImg = Mat(numRows, numCols, CV_8UC1);
+	Mat cloneImg = Mat(PIXELS_IN_SIDE, PIXELS_IN_SIDE, CV_8UC1);
 
-	resize(img, cloneImg, Size(numCols, numRows));
+	resize(img, cloneImg, Size(PIXELS_IN_SIDE, PIXELS_IN_SIDE));
 
-	// remove any lines near the image borders
-	rectangle(cloneImg, Point(0, 0), Point(27, 27), Scalar(0, 0, 0), 5);
-
-	cloneImg = cloneImg.reshape(1, 1);
+ 	// cloneImg = cloneImg.reshape(1, 1);
 
 	return cloneImg;
 }
 
 int DigitRecognizer::classify(Mat img)
 {
+	cout <<"checkpoint -1" << endl;
 	Mat cloneImg = preprocessImage(img);
 
 	// im is of type Mat
 
-	vector<float> descriptors;
+
 	// Mat deskewedHog = img.reshape(1, 28);
  /*
 	Mat hogger(cloneImg.size(), 1, CV_32FC1);
@@ -175,9 +259,23 @@ int DigitRecognizer::classify(Mat img)
 	cout << descriptors[0].cols << endl;
 
 	*/
+
+	vector<float> descriptors;
+	cout <<"checkpoint 0" << endl;
 	hog.compute(cloneImg, descriptors);
 
-	int prediction = svm->predict(descriptors);
+	Mat hest(1, descriptors.size(), CV_32FC1);
+
+	int i = 0;
+	for(int j = 0; j < descriptors.size(); j++){
+		hest.at<float>(i,j) = descriptors[j];
+	}
+
+	cout <<"checkpoint" << endl;
+
+	imshow("meh", cloneImg);
+
+	int prediction = svm->predict(hest);
 
 	/*
 	Mat foo = cloneImg.reshape(1, 28);
@@ -200,120 +298,58 @@ int reverseInt(int i)
 	return ((int)ch1 << 24) + ((int)ch2 << 16) + ((int)ch3 << 8) + ch4;
 }
 
-bool DigitRecognizer::train(const char *trainPath, const char *labelsPath)
+bool DigitRecognizer::train()
 {
 	std::cout << "trying to open files" << endl;
+	vector<Mat> trainCells;
+	vector<Mat> testCells;
+	vector<int> trainLabels;
+	vector<int> testLabels;
+	load_train_data(pathName, trainCells, testCells, trainLabels, testLabels);
 
-	std::ifstream pic_file(trainPath, std::ios::binary);
-	std::ifstream label_file(labelsPath, std::ios::binary);
+	vector<Mat> deskewedTrainCells;
+    vector<Mat> deskewedTestCells;
+    CreateDeskewedTrainTest(deskewedTrainCells,deskewedTestCells,trainCells,testCells);
 
-	std::cout << "opened files, yay" << endl;
+    std::vector<std::vector<float> > trainHOG;
+    std::vector<std::vector<float> > testHOG;
+	// hog->compute every cell in the test data set and get descriptors
+    CreateTrainTestHOG(trainHOG,testHOG,deskewedTrainCells,deskewedTestCells);
 
-	if (!pic_file.is_open() || !label_file.is_open())
-		return false;
+    int descriptor_size = trainHOG[0].size();
+    cout << "Descriptor Size : " << descriptor_size << endl;
 
-	int magic_number = 0;
-	int number_of_images = 0;
-	int n_rows = 0;
-	int n_cols = 0;
+    Mat trainMat(trainHOG.size(),descriptor_size,CV_32FC1);
+    Mat testMat(testHOG.size(),descriptor_size,CV_32FC1);
 
-	label_file.read((char *)&magic_number, sizeof(magic_number));
-	pic_file.read((char *)&magic_number, sizeof(magic_number));
-	magic_number = reverseInt(magic_number);
+    ConvertVectortoMatrix(trainHOG,testHOG,trainMat,testMat);
 
-	label_file.read((char *)&number_of_images, sizeof(number_of_images));
-	pic_file.read((char *)&number_of_images, sizeof(number_of_images));
-	number_of_images = reverseInt(number_of_images);
+	// ....
+	Ptr<TrainData> td = TrainData::create(trainMat, ROW_SAMPLE, trainLabels);
 
-	pic_file.read((char *)&n_rows, sizeof(n_rows));
-	n_rows = reverseInt(n_rows);
-	pic_file.read((char *)&n_cols, sizeof(n_cols));
-	n_cols = reverseInt(n_cols);
-
-	numRows = n_rows;
-	numCols = n_cols;
-
-	int n_stride = n_cols * n_rows;
-	Mat training_data = Mat(number_of_images, n_stride, CV_8U);
-	Mat label_data = Mat(number_of_images, 1, CV_8U);
-
-	vector<vector<float>> trainHOG;
-
-	for (int i = 0; i < number_of_images; ++i)
-	{
-		unsigned char data_tmp[PIXELS_IN_IMAGE];
-		pic_file.read((char *)data_tmp, sizeof(unsigned char) * n_stride);
-		Mat row_image(1, n_stride, CV_8U, data_tmp);
-		row_image.row(0).copyTo(training_data.row(i));
-
-		// maybe this goes here??
-		vector<float> descriptors;
-		auto cell = training_data.row(i);
-		Mat deskewedHog = cell.reshape(1, 28);
-		deskewedHog = deskew(deskewedHog);
-
-		hog.compute(cell, descriptors);
-		trainHOG.push_back(descriptors);
-
-		char label = 0;
-		label_file.read((char *)&label, sizeof(label));
-		label_data.at<uchar>(i, 0) = label;
-	}
-
-	std::cout << "creating train data" << endl;
-
-	training_data.convertTo(training_data, CV_32FC1);
-	label_data.convertTo(label_data, CV_32SC1);
-
-	// Ptr<ml::SVM> svm;
-	std::cout << "at the station" << endl;
-
-	int descriptor_size = trainHOG[0].size();
-	Mat trainMat(trainHOG.size(),descriptor_size,CV_32FC1);
-
-	for (int i = 0; i < trainHOG.size(); i++)
-	{
-		for (int j = 0; j < descriptor_size; j++)
-		{
-			trainMat.at<float>(i, j) = trainHOG[i][j];
-		}
-	}
-
-	Ptr<TrainData> td = TrainData::create(trainMat, ROW_SAMPLE, label_data);
 	if (ENABLE_TRAIN)
 	{
 		svm->train(td);
-		svm->save("SVM_MNIST.xml");
+		svm->save("svm.xml");
 	}
 	else
 	{
-		svm = Algorithm::load<SVM>("SVM_MNIST.xml");
+		svm = Algorithm::load<SVM>("svm.xml");
 	}
 
-	/*
-	cout << "accuracy: " << endl;
-	int correct_count = 0;
-	for (int idx = 0; idx < label_data.rows; idx++)
+	Mat testResponse;
+	float count = 0;
+    float accuracy = 0 ;
+	svm->predict(testMat, testResponse);
+
+	for(int i = 0; i < testResponse.rows; i++)
 	{
-		float response = svm->predict(trainMat.row(idx));
-
-		//Mat foo = trainMat.row(idx);
-		// foo = foo.reshape(1, 28);
-		String hest = to_string(label_data.at<uchar>(idx, 0)) + " " + to_string(response);
-	//	imshow(hest, trainMat.row(idx));
-	//	waitKey(0);
-
-
-		if (label_data.at<uchar>(idx, 0) == (uchar)response)
-		{
-			correct_count++;
-		}
+		if(testResponse.at<float>(i,0) == testLabels[i])
+			count = count + 1;
 	}
+	accuracy = (count/testResponse.rows)*100;
+	cout << "accuracy " << accuracy << endl;
 
-
-	double correct_ratio = (double)correct_count / (double)label_data.rows;
-	cout << 1 - correct_ratio << endl;
-	*/
 
 	return true;
 }

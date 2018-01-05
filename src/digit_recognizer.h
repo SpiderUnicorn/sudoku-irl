@@ -13,7 +13,7 @@ public:
 	DigitRecognizer();
 	~DigitRecognizer();
 
-	bool train(const char* trainPath, const char* labelsPath);
+	bool train();
 	int classify(Mat img);
 
 private:

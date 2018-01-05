@@ -6,6 +6,6 @@ CMakeCache.txt
 /build
 Makefile
 SVM_MNIST.xml
-soduku
+sudoku
 .dockerignore
 Dockerfile
