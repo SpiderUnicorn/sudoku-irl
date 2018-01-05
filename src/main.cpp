@@ -3,14 +3,11 @@
 #include <stdio.h>
 #include <opencv2/opencv.hpp>
 
-#include <tesseract/baseapi.h>
-#include <leptonica/allheaders.h>
-
 using namespace cv;
 using namespace std;
 
 // do better when awake
-int SZ = 20;
+int SZ = 28; // was 20
 float affineFlags = WARP_INVERSE_MAP|INTER_LINEAR;
 
 vector<Point> get_largest_contour(InputOutputArray src) {
@@ -21,7 +18,7 @@ vector<Point> get_largest_contour(InputOutputArray src) {
     int largest_contour_index;
     double maxArea;
 
-    for (int i = 0; i < contours.size(); i++) {
+    for (uint i = 0; i < contours.size(); i++) {
         double area = contourArea(contours[i]);
         if (area > maxArea) {
             maxArea = area;
@@ -32,7 +29,7 @@ vector<Point> get_largest_contour(InputOutputArray src) {
     return contours[largest_contour_index];
 }
 
-Mat deskew(Mat& img){
+Mat deskew2(Mat& img){
     Moments m = moments(img);
     if(abs(m.mu02) < 1e-2){
         return img.clone();
@@ -104,7 +101,7 @@ int main(int argc, char** argv) {
     const char * lp = label_path.c_str();
 
     // into the unknown...
-    bool b = dr->train(tp, lp);
+    dr->train(tp, lp);
 
 	std::cout << "done training... phew" << endl;
 

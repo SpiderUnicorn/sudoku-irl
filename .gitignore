@@ -7,3 +7,5 @@ CMakeCache.txt
 Makefile
 SVM_MNIST.xml
 soduku
+.dockerignore
+Dockerfile

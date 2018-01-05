@@ -21,6 +21,6 @@ private:
 	int readFlippedInteger(FILE *fp);
 
 private:
-	Ptr<ml::SVM> svm;
+	Ptr<cv::ml::SVM> svm;
 	int numRows, numCols, numImages;
 };

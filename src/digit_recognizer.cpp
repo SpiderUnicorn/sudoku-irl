@@ -11,6 +11,11 @@ typedef unsigned char BYTE;
 #define PIXELS_IN_IMAGE 28*28
 #define ENABLE_TRAIN 1
 
+
+// do better when awake
+int SZ_d = 28; // was 20
+float affineFlags_d = WARP_INVERSE_MAP|INTER_LINEAR;
+
 HOGDescriptor hog(
 	Size(28,28), //winSize
 	Size(14,14), //blocksize
@@ -24,6 +29,20 @@ HOGDescriptor hog(
 				1,//gammal correction,
 				64,//nlevels=64
 				1);//Use signed gradients
+
+Mat deskew(Mat& img) {
+    Moments m = moments(img);
+    if(abs(m.mu02) < 1e-2){
+        return img.clone();
+    }
+    float skew = m.mu11/m.mu02;
+    Mat warpMat = (Mat_<float>(2,3) << 1, skew, -0.5*SZ_d*skew, 0, 1, 0);
+    Mat imgOut = Mat::zeros(img.rows, img.cols, img.type());
+    warpAffine(img, imgOut, warpMat, imgOut.size(),affineFlags_d);
+
+    return imgOut;
+}
+
 
 DigitRecognizer::DigitRecognizer()
 {
@@ -140,8 +159,12 @@ int DigitRecognizer::classify(Mat img)
 
 	// im is of type Mat
 
+	vector<float> descriptors;
+	// Mat deskewedHog = img.reshape(1, 28);
 
-	int prediction = svm->predict(Mat_<float>(cloneImg));
+	hog.compute(img, descriptors);
+
+	int prediction = svm->predict(descriptors);
 
 	/*
 	Mat foo = cloneImg.reshape(1, 28);
@@ -210,7 +233,11 @@ bool DigitRecognizer::train(const char *trainPath, const char *labelsPath)
 
 		// maybe this goes here??
 		vector<float> descriptors;
-        hog.compute(training_data.row(i), descriptors);
+		auto cell = training_data.row(i);
+		Mat deskewedHog = cell.reshape(1, 28);
+		deskewedHog = deskew(deskewedHog);
+	
+        hog.compute(deskewedHog, descriptors);
         trainHOG.push_back(descriptors);
 
 		char label = 0;
@@ -230,7 +257,7 @@ bool DigitRecognizer::train(const char *trainPath, const char *labelsPath)
 	int descriptor_size = trainHOG[0].size();
 
 	for(int i = 0;i<trainHOG.size();i++){
-        for(int j = 0;j<descriptor_size;j++){
+        for(int j = 0;j<descriptor_size;j++) {
            training_data.at<float>(i,j) = trainHOG[i][j];
         }
     }
