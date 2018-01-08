@@ -17,6 +17,5 @@ include_directories( ${OpenCV_INCLUDE_DIRS} )
 
 include_directories("src")
 
-
-add_executable( sudoku ./src/main.cpp ./src/pre_process.cpp ./src/digit_recognizer.cpp )
+add_executable( sudoku ${SOURCES} )
 target_link_libraries( sudoku ${OpenCV_LIBS} )
