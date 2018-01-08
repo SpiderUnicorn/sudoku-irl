@@ -24,3 +24,21 @@
 * ~~Parse the numbers in the grid~~
 * ~~Predict digits by SVM~~
 * Solve the sudoku
+
+## Build
+
+Prerequisites
+* OpenCV
+* cmake
+
+```
+$ cmake .
+```
+
+```
+$ make
+```
+
+```
+$ ./sudoku ./complex.jpg
+```
