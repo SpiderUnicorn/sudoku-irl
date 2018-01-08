@@ -7,8 +7,6 @@ using namespace cv;
 using namespace cv::ml;
 using namespace std;
 
-typedef unsigned char BYTE;
-
 #define PIXELS_IN_SIDE 20
 #define PIXELS_IN_IMAGE PIXELS_IN_SIDE *PIXELS_IN_SIDE
 #define ENABLE_TRAIN 1
