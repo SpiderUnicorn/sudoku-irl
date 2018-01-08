@@ -13,6 +13,7 @@ namespace sudoku {
     cv::Mat deskew(cv::Mat &img, const int SIDE_LENGTH);
     void deskew_all(std::vector<cv::Mat> &deskewedDigits, std::vector<cv::Mat> &digits);
     void extract_lines(const cv::Mat& img, cv::Mat& dst, LineType lineType);
+    std::vector<cv::Point> get_largest_contour(cv::InputOutputArray src);
 
 }
 

@@ -111,4 +111,26 @@ void extract_lines(const Mat& img, Mat& dst, LineType lineType)
     }
 }
 
+vector<Point> get_largest_contour(InputOutputArray src)
+{
+    vector<vector<Point>> contours;
+    findContours(src, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE, Point(0, 0));
+
+    // Find the largest rectangle in the picture
+    int largest_contour_index;
+    double maxArea;
+
+    for (uint i = 0; i < contours.size(); i++)
+    {
+        double area = contourArea(contours[i]);
+        if (area > maxArea)
+        {
+            maxArea = area;
+            largest_contour_index = i;
+        }
+    }
+
+    return contours[largest_contour_index];
+}
+
 }
