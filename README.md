@@ -1,5 +1,7 @@
 # Sudoku IRL
 
+![alt text](logo.png "Sudoku unicorn")
+
 > Using computer vision and machine learning to solve a sudodu from images with OpenCV c++
 
 ## Challenges

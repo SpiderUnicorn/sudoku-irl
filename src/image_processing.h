@@ -14,7 +14,7 @@ namespace sudoku {
     void deskew_all(std::vector<cv::Mat> &deskewedDigits, std::vector<cv::Mat> &digits);
     void extract_lines(const cv::Mat& img, cv::Mat& dst, LineType lineType);
     std::vector<cv::Point> get_largest_contour(cv::InputOutputArray src);
-
+    void center_digit(cv::Mat &src, cv::Mat &outbound);
 }
 
 #endif

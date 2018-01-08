@@ -7,8 +7,6 @@ using namespace std;
 
 namespace sudoku {
 
-// Mat img = imread(pathName, CV_LOAD_IMAGE_GRAYSCALE);
-
 void parse_training_data(Mat img, vector<Mat> &digits, vector<int> &labels, const int SIDE_LENGTH)
 {
     const int DIGITS_IN_BASE_TEN = 10;

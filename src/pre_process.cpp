@@ -5,7 +5,7 @@
 using namespace cv;
 using namespace std;
 
-// 255 is the maximum threshold, yielding an illuminated image
+// Illuminate pixels above threshold to max
 const double THRESHOLD_MAX_VALUE = 255;
 // A smaller value preserves less detail
 const int THRESHOLD_BLOCK_SIZE = 7;
