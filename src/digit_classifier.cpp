@@ -7,12 +7,18 @@ using namespace cv;
 using namespace cv::ml;
 using namespace std;
 
-const int PIXELS_IN_SIDE 20;
+const int PIXELS_IN_SIDE = 20;
 
 namespace sudoku {
 
 Mat DigitClassifier::preprocessImage(Mat img)
 {
+	imshow("noroded", img);
+	Mat kernel = getStructuringElement(MORPH_CROSS, Size(2, 2));
+
+	erode(img, img, kernel, Point(-1, -1));
+	imshow("eroded", img);
+
 	Mat centeredDigit;
 	center_digit(img, centeredDigit);
 
@@ -24,6 +30,7 @@ Mat DigitClassifier::preprocessImage(Mat img)
 
 int DigitClassifier::classify(Mat img, HOGDescriptor hog)
 {
+	// img.convertTo(img, CV_8UC1);
 	vector<float> descriptors;
 	hog.compute(img, descriptors);
 
@@ -35,7 +42,8 @@ int DigitClassifier::classify(Mat img, HOGDescriptor hog)
 		descriptorMat.at<float>(0, col) = descriptors[col];
 	}
 
-	cout << descriptorMat.size().width << endl;
+	Mat1f test(descriptors.size(), CV_32FC1, descriptors.data());
+
 	int prediction = svm->predict(descriptorMat);
 
 	return prediction;

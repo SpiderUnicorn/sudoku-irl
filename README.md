@@ -27,6 +27,8 @@
 * ~~Predict digits by SVM~~
 * Solve the sudoku
 
+## Maybe
+Erode away noise before predictions
 ## Build
 
 Prerequisites

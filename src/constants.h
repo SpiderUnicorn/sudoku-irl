@@ -1,0 +1,6 @@
+#ifndef SUDOKU_CONSTANTS
+#define SUDOKU_CONSTANTS
+
+#define BOARD_SIZE 500
+
+#endif

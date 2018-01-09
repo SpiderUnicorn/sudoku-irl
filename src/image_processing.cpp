@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <opencv2/opencv.hpp>
 #include "image_processing.h"
+#include "pre_process.h"
+#include "constants.h"
 
 using namespace cv;
 using namespace std;
@@ -144,11 +146,12 @@ vector<Point> get_largest_contour(InputOutputArray src)
 
     return contours[largest_contour_index];
 }
-
+int i = 0;
 void center_digit(Mat &src, Mat &outbound)
 {
+    // imshow("before center" + to_string(++i), src);
     // paint frame black
-    rectangle(src, Point(0, 0), Point(src.rows - 1, src.cols - 1), Scalar(0), 5);
+    // rectangle(src, Point(0, 0), Point(src.rows - 1, src.cols - 1), Scalar(0), 5);
 
     // get the contours
     vector<vector<Point>> contours;
@@ -158,6 +161,7 @@ void center_digit(Mat &src, Mat &outbound)
     if (contours.empty())
     {
         src.copyTo(outbound);
+        // cout << "image with no digit in center digit" << endl;
         return;
     }
 
@@ -187,8 +191,75 @@ void center_digit(Mat &src, Mat &outbound)
 
     // paste the cropped contour into a new image
     roi.copyTo(centered(Rect(centerBox)));
+    // imshow("centered" + to_string(++i), centered);
 
     centered.copyTo(outbound);
+}
+
+void get_largest_contour_corners(Mat img, Point2f corners[4])
+{
+    Mat thresholded;
+    pre_process(img, thresholded);
+
+    vector<Point> contour = get_largest_contour(thresholded);
+
+    // approximate lines around the countour to get the corner coordinates
+    vector<vector<Point>> contours_poly(1);
+    approxPolyDP(Mat(contour), contours_poly[0], 5, true);
+
+    // corners of the game board
+    for (int i = 0; i < 4; i++)
+    {
+        corners[i] = Point2f(contours_poly[0][i].x, contours_poly[0][i].y);
+    }
+}
+
+int* order_corners(Point2f corners[4])
+{
+    // get the index of corner theclosest to the upper left corner
+    // of the image by finding the smallest hypotenuse (cSquared)
+    int min = 99999999;
+    int minIndex = 0;
+    for (int i = 0; i < 4; i++) {
+        auto corner = corners[i];
+        auto cSquared = pow(corner.x, 2) + pow(corner.y, 2);
+        if (cSquared < min) {
+            min = cSquared;
+            minIndex = i;
+        }
+    }
+
+    int *indexArray = new int[4];
+    for (int i = minIndex; i < minIndex + 4; i++) {
+        *(indexArray++) = i % 4;
+    }
+    // rewind pointer
+    indexArray -= 4;
+
+    return indexArray;
+}
+
+Mat extract_straightened_board(Mat img, int size = BOARD_SIZE)
+{
+    Point2f corners[4];
+    get_largest_contour_corners(img, corners);
+
+    Point2f destinationCorners[4];
+    int * orderedIndex = order_corners(corners);
+
+    destinationCorners[0[orderedIndex]] = Point2f(0, 0);
+    destinationCorners[1[orderedIndex]] = Point2f(0, size);
+    destinationCorners[2[orderedIndex]] = Point2f(size, size);
+    destinationCorners[3[orderedIndex]] = Point2f(size, 0);
+
+    Mat straightened = Mat(Size(size, size), CV_8UC1);
+    warpPerspective(
+        img,
+        straightened,
+        getPerspectiveTransform(corners, destinationCorners),
+        Size(size, size));
+
+    return straightened.clone();
 }
 
 }

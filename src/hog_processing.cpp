@@ -20,6 +20,7 @@ void parse_training_data(Mat img, vector<Mat> &digits, vector<int> &labels, cons
 		for (int col = 0; col < img.cols; col += SIDE_LENGTH)
 		{
             Mat digit = img.colRange(col, col + SIDE_LENGTH).rowRange(row, row + SIDE_LENGTH);
+			// center_digit(digit, digit);
 			digits.push_back(digit.clone());
 		}
 	}
