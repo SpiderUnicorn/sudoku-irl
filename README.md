@@ -28,7 +28,8 @@
 * Solve the sudoku
 
 ## Maybe
-Erode away noise before predictions
+~~Erode away noise before predictions~~
+Debug flags
 ## Build
 
 Prerequisites

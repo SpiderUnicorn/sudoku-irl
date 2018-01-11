@@ -16,7 +16,7 @@ namespace sudoku {
     std::vector<cv::Point> get_largest_contour(cv::InputOutputArray src);
     void center_digit(cv::Mat &src, cv::Mat &outbound);
     // cv::Point2f* get_largest_contour_corners(cv::Mat img);
-    cv::Mat extract_straightened_board(cv::Mat img, int size);
+    // cv::Mat extract_straightened_board(cv::Mat img, int size);
 }
 
 #endif

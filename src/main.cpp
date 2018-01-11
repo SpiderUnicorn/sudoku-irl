@@ -4,6 +4,7 @@
 #include "digit_classifier.h"
 #include "image_processing.h"
 #include "hog_processing.h"
+#include "perspective_transformer.h"
 
 using namespace cv;
 using namespace cv::ml;
@@ -72,7 +73,11 @@ int main(int argc, char **argv)
     Mat raw_img = imread(image_path, CV_LOAD_IMAGE_UNCHANGED);
     imshow("Source", raw_img);
 
-    Mat board = extract_straightened_board(raw_img, BOARD_SIZE);
+    auto perspectiveTransformer = new PerspectiveTransformer(raw_img);
+
+    Mat board = perspectiveTransformer->extract_straightened_board(BOARD_SIZE);
+    Mat unchangedBoard = Mat::zeros(board.size(), board.type());
+    board.copyTo(unchangedBoard);
     imshow("bored", board);
 
     pre_process(board, board);
@@ -119,7 +124,8 @@ int main(int argc, char **argv)
     Mat currentCell = Mat(dist, dist, CV_8UC1);
 
     int _ = -1; //typ
-    /*
+    
+    // complex.jpg
     vector<vector<int>> facitArr = {
 			{ 8, _, _,   _, 1, _,   _, _, 9 },
 			{ _, 5, _,   8, _, 7,   _, 1, _ },
@@ -133,7 +139,9 @@ int main(int argc, char **argv)
 			{ _, 8, _,   3, _, 9,   _, 4, _ },
 			{ 3, _, _,   _, 5, _,   _, _, 8 },
 		};
-    */
+    
+    /*
+    // simple.png
     vector<vector<int>> facitArr = {
 			{ 5, 3, _,   _, 7, _,   _, _, _ },
 			{ 6, _, _,   1, 9, 5,   _, _, _ },
@@ -147,7 +155,24 @@ int main(int argc, char **argv)
 			{ _, _, _,   4, 1, 9,   _, _, 5 },
 			{ _, _, _,   _, 8, _,   _, 7, 9 },
 		};
+    */
 
+    // with_handwritten.jog
+    /*
+    vector<vector<int>> facitArr = {
+			{ 5, 4, 8,   2, _, _,   3, _, _ },
+            { 2, 7, 9,   3, 4, 8,   5, _, _ },
+            { 3, _, _,   5, _, _,   4, 2, 8 },
+
+			{ _, _, _,   _, _, _,   6, _, _ },
+            { 4, _, 3,   8, _, _,   _, _, 9 },
+            { _, _, _,   _, 5, 2,   _, 4, 3 },
+
+			{ _, _, 2,   9, 8, _,   _, _, _ },
+            { _, 3, 4,   _, _, _,   _, _, _ },
+			{ 6, _, 7,   _, _, _,   _, _, _ },
+		};
+    */
 
     DigitClassifier *classifier = new DigitClassifier(svm);
     for (int row = 0; row < 9; row++)
@@ -175,27 +200,34 @@ int main(int argc, char **argv)
                 int number = classifier->classify(processed, hog);
                 String answer = to_string(facitArr[row][col]);
                 String res = number == facitArr[row][col] ? "true" : "false";
-                String hest = "(" + to_string(row) + ", " + to_string(col) + ") -> " + to_string(number) + " = " + answer + " " + res;
+                String answerDiaplay = "(" + to_string(row) + ", " + to_string(col) + ") -> " + to_string(number) + " = " + answer + " " + res;
                 if (number != facitArr[row][col]) {
-                    imshow(hest, processed);
+                    imshow(answerDiaplay, processed);
                 }
+                // putText(unchangedBoard, to_string(number), Point(col * dist + (dist / 4), row * dist + (dist / 1.5)), FONT_HERSHEY_SIMPLEX, 1, Scalar(0,255,0), 1, LINE_AA);
 
-                cout << hest << endl;
+                cout << answerDiaplay << endl;
 
                 // waitKey(3000);
             }
             else
             {
                 if (facitArr[row][col] != -1) {
-                    String hest = "(" + to_string(row) + ", " + to_string(col) + ") != " + to_string(facitArr[row][col]);
-                    cout << hest << endl;
+                    String answerDiaplay = "(" + to_string(row) + ", " + to_string(col) + ") != " + to_string(facitArr[row][col]);
+                    cout << answerDiaplay << endl;
 
                 }
+                putText(unchangedBoard, to_string(rand() % 10), Point(col * dist + (dist / 4), row * dist + (dist / 1.2)), FONT_HERSHEY_SIMPLEX, 1.5, Scalar(0,255,0), 2, LINE_AA);
             }
             //cout << area << " " << col << "//" << row << endl;
         }
     }
     cout << endl;
+
+
+    Mat endResult = perspectiveTransformer->project_onto_unstraightened(unchangedBoard);
+
+    imshow("result", unchangedBoard);
 
     waitKey(0);
     cout << "done" << endl;
