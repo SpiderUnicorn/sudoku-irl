@@ -1,4 +1,3 @@
-/*
 #define CATCH_CONFIG_MAIN
 #include <stdio.h>
 #include "catch.h"
@@ -150,5 +149,4 @@ TEST_CASE("Set cell", "[setCell]" ) {
     REQUIRE( testValue == 9 );
 }
 
-} 
-*/
+}
