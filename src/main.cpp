@@ -5,6 +5,8 @@
 #include "image_processing.h"
 #include "hog_processing.h"
 #include "perspective_transformer.h"
+#include "./model/solver/sudoku-board.h"
+#include "./model/solver/sudoku-solver.h"
 
 using namespace cv;
 using namespace cv::ml;
@@ -68,6 +70,14 @@ void test_remove_lines(Mat &img, Mat &out) {
 
 int main(int argc, char **argv)
 {
+    /*
+    VideoCapture cap(0);
+    waitKey(1000);
+    Mat raw_img;
+    cap >> raw_img;
+    imshow("cap", raw_img);
+    */
+
     const String image_path = argv[1];
 
     Mat raw_img = imread(image_path, CV_LOAD_IMAGE_UNCHANGED);
@@ -93,6 +103,27 @@ int main(int argc, char **argv)
     // so they don't interfere with digit detection
     board = board - lines;
 
+    vector<vector<Point>> contours;
+    findContours(board, contours, RETR_LIST, CHAIN_APPROX_NONE, Point(-1, -1));
+
+    // Find the largest rectangle in the picture
+    int largest_contour_index;
+    double maxArea;
+
+    for (uint i = 0; i < contours.size(); i++)
+    {
+        double area = contourArea(contours[i]);
+        if (area > maxArea)
+        {
+            maxArea = area;
+            largest_contour_index = i;
+        }
+    }
+
+    
+    Mat clone = Mat::zeros(board.size(), board.type());
+    drawContours(clone, contours, largest_contour_index, Scalar(255, 0, 0));
+    imshow("contours", clone);
 
     Mat restLines = Mat::zeros( board.size(),board.type() );
     test_remove_lines(board, restLines);
@@ -124,7 +155,7 @@ int main(int argc, char **argv)
     Mat currentCell = Mat(dist, dist, CV_8UC1);
 
     int _ = -1; //typ
-    
+
     // complex.jpg
     vector<vector<int>> facitArr = {
 			{ 8, _, _,   _, 1, _,   _, _, 9 },
@@ -139,7 +170,7 @@ int main(int argc, char **argv)
 			{ _, 8, _,   3, _, 9,   _, 4, _ },
 			{ 3, _, _,   _, 5, _,   _, _, 8 },
 		};
-    
+
     /*
     // simple.png
     vector<vector<int>> facitArr = {
@@ -175,6 +206,9 @@ int main(int argc, char **argv)
     */
 
     DigitClassifier *classifier = new DigitClassifier(svm);
+    SudokuBoard unsolvedBoard = SudokuBoard::empty();
+
+
     for (int row = 0; row < 9; row++)
     {
         for (int col = 0; col < 9; col++)
@@ -198,38 +232,56 @@ int main(int argc, char **argv)
             if (area > processed.rows * processed.cols / 25)
             {
                 int number = classifier->classify(processed, hog);
+
+                unsolvedBoard.setValue(BoardCell(row, col), number);
+                /*
                 String answer = to_string(facitArr[row][col]);
                 String res = number == facitArr[row][col] ? "true" : "false";
                 String answerDiaplay = "(" + to_string(row) + ", " + to_string(col) + ") -> " + to_string(number) + " = " + answer + " " + res;
                 if (number != facitArr[row][col]) {
                     imshow(answerDiaplay, processed);
                 }
-                // putText(unchangedBoard, to_string(number), Point(col * dist + (dist / 4), row * dist + (dist / 1.5)), FONT_HERSHEY_SIMPLEX, 1, Scalar(0,255,0), 1, LINE_AA);
-
-                cout << answerDiaplay << endl;
+                */
+                putText(unchangedBoard, to_string(number), Point(col * dist + (dist / 4), row * dist + (dist / 1.5)), FONT_HERSHEY_SIMPLEX, 1, Scalar(0,255,0), 1, LINE_AA);
 
                 // waitKey(3000);
             }
             else
             {
+                /*
                 if (facitArr[row][col] != -1) {
                     String answerDiaplay = "(" + to_string(row) + ", " + to_string(col) + ") != " + to_string(facitArr[row][col]);
                     cout << answerDiaplay << endl;
 
                 }
-                putText(unchangedBoard, to_string(rand() % 10), Point(col * dist + (dist / 4), row * dist + (dist / 1.2)), FONT_HERSHEY_SIMPLEX, 1.5, Scalar(0,255,0), 2, LINE_AA);
+                */
+                unsolvedBoard.setValue(BoardCell(row, col), _);
+               //  putText(unchangedBoard, to_string(rand() % 10), Point(col * dist + (dist / 4), row * dist + (dist / 1.2)), FONT_HERSHEY_SIMPLEX, 1.5, Scalar(0,255,0), 2, LINE_AA);
             }
             //cout << area << " " << col << "//" << row << endl;
         }
     }
     cout << endl;
 
+    SudokuBoard solvedBoard = SudokuBoard::empty();
+    // waitKey(0);
+    auto isSolved = SudokuSolver::solve(&unsolvedBoard, &solvedBoard);
 
     Mat endResult = perspectiveTransformer->project_onto_unstraightened(unchangedBoard);
 
+    for (int row = 0; row < 9; row++) {
+        for (int col = 0; col < 9; col++) {
+            auto value = solvedBoard.getValue(BoardCell(row, col));
+            cout << to_string(value) << " ";
+            putText(unchangedBoard, to_string(value), Point(col * dist + (dist / 4), row * dist + (dist / 1.2)), FONT_HERSHEY_SIMPLEX, 1.5, Scalar(0,255,0), 2, LINE_AA);
+        }
+        cout << endl;
+    }
+
     imshow("result", unchangedBoard);
 
+    cout << to_string(isSolved) << endl;
     waitKey(0);
-    cout << "done" << endl;
+
     return 0;
 }

@@ -45,7 +45,7 @@ void get_largest_contour_corners(Mat img, Point2f corners[4])
 
     // approximate lines around the countour to get the corner coordinates
     vector<vector<Point>> contours_poly(1);
-    approxPolyDP(Mat(contour), contours_poly[0], 5, true);
+    approxPolyDP(Mat(contour), contours_poly[0], 100, true);
 
     // corners of the game board
     for (int i = 0; i < 4; i++)
@@ -121,6 +121,7 @@ Mat PerspectiveTransformer::extract_straightened_board(int size)
 
 Mat PerspectiveTransformer::project_onto_unstraightened(Mat projection)
 {
+    /*
     Mat bSubmat = submat(
         projection.rows(),
         projection.rows()*2,
@@ -129,8 +130,8 @@ Mat PerspectiveTransformer::project_onto_unstraightened(Mat projection)
     projection.copyTo(bSubmat);
 
     imshow("Overlay Image", original);
-
-    return original;
+    */
+    return projection;
 }
 
 }
