@@ -2,4 +2,4 @@ FROM madduci/docker-ubuntu-cpp
 
 ADD . .
 
-ENTRYPOINT ./test.sh
+ENTRYPOINT ./src/solver/test/test.sh

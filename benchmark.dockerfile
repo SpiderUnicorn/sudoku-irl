@@ -23,9 +23,9 @@ RUN make install
 
 WORKDIR ./
 
-ADD . .
+ADD ./src/solver .
 
 # Compile benchmark
-RUN g++ ./benchmark.cpp -pthread -lbenchmark -std=c++0x -o ./benchmark
+RUN g++ ./benchmark/benchmark.cpp ./sudoku-board.cpp ./sudoku-solver.cpp -pthread -lbenchmark -std=c++0x -o ./benchmark.out
 
-ENTRYPOINT ./benchmark
+ENTRYPOINT ./benchmark.out

@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include "catch.h"
 
-#include "../solver/sudoku-board.h"
-#include "../solver/sudoku-solver.h"
+#include "../sudoku-board.h"
+#include "../sudoku-solver.h"
 
 namespace sudoku {
 
