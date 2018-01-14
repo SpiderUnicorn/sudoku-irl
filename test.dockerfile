@@ -1,7 +1,9 @@
-FROM madduci/docker-ubuntu-cpp
+FROM gcc
 
-ADD . .
+RUN mkdir test-dir
 
-WORKDIR ./src/solver/test
+ADD ./src/solver ./test-dir
+
+WORKDIR ./test-dir/test
 
 ENTRYPOINT ./test.sh
