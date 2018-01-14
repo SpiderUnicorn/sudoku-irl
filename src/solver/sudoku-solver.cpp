@@ -8,20 +8,19 @@ namespace sudoku {
 
 bool SudokuSolver::solve(SudokuBoard *unsolved, SudokuBoard *solved, BoardCell from) {
 
-    BoardCell emptyCell = BoardCell(_, _);
-    bool foundEmptyCell = unsolved->findFirstEmptyCell(&emptyCell);
+    bool foundEmptyCell = unsolved->findFirstEmptyCell(&from);
     if (!foundEmptyCell)
         return SudokuSolver::isSolved(*unsolved);
 
     for (int guess = 1; guess <= 9; guess++) {
-        if (SudokuSolver::isValidGuess(unsolved, emptyCell, guess)) {
-            unsolved->setValue(emptyCell, guess);
+        if (SudokuSolver::isValidGuess(unsolved, from, guess)) {
+            unsolved->setValue(from, guess);
 
-            if (solve(unsolved, solved, emptyCell)) {
+            if (solve(unsolved, solved, from)) {
                 *solved = *unsolved;
                 return true;
             } else {
-                unsolved->clearValue(emptyCell);
+                unsolved->clearValue(from);
             }
         }
     }
